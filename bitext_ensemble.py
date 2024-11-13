@@ -56,10 +56,10 @@ def evaluate_bitext_mining(source_embeddings_all_models, target_embeddings_all_m
                 num_of_batches += 1
     
             for i in range(num_of_batches):
-                target_embedding = torch.FloatTensor(target_embeddings[i*batch_size:(i+1)*batch_size]).unsqueeze(1).cuda()
+                target_embedding = torch.FloatTensor(target_embeddings[i*batch_size:(i+1)*batch_size]).unsqueeze(1).to(device)
                 
                 source_embedding = torch.FloatTensor(source_embeddings[source_id]).unsqueeze(0)
-                source_embedding = source_embedding.expand(len(target_embedding), -1).unsqueeze(1).cuda()
+                source_embedding = source_embedding.expand(len(target_embedding), -1).unsqueeze(1).to(device)
                 
                 dist = torch.cdist(source_embedding, target_embedding, p=2, compute_mode='use_mm_for_euclid_dist_if_necessary').squeeze().tolist()
     
@@ -109,6 +109,9 @@ if __name__ == "__main__":
     parser.add_argument("--fp16", action="store_true")
     args = parser.parse_args()
 
+    # Setup device
+    device = torch.device("cuda" if torch.cuda.is_available() and not args.cuda else "cpu")
+
     # Make sure cuda is deterministic
     torch.backends.cudnn.deterministic = True
 
@@ -143,7 +146,7 @@ if __name__ == "__main__":
             models.append(OpenAI(api_key=OPENAI_TOKEN))
             batch_size = 64
         else:
-            models.append(SentenceTransformer(model_checkpoint).cuda())
+            models.append(SentenceTransformer(model_checkpoint).to(device))
             batch_size = 128
     
     if args.dataset == "nusax":

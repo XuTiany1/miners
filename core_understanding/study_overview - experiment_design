@@ -1,0 +1,130 @@
+=========================================================================================
+
+1. Overview of the Study
+
+Purpose:
+    - The study evaluates the effectiveness of multilingual language models (LMs) in semantic retrieval and classification tasks across 200+ languages, including challenging settings like code-switching and low-resource languages.
+
+Key Contribution:
+Introduction of the MINERS benchmark, designed to:
+	•	Test the robustness of multilingual LMs in retrieving semantically similar embeddings.
+	•	Evaluate their performance in tasks without requiring fine-tuning.
+
+
+=========================================================================================
+
+2. What Is It Evaluating?
+
+The study assesses the ability of multilingual LMs to:
+	1.	Retrieve semantically similar samples across languages.
+	2.	Classify data using retrieved context or examples.
+	3.	Handle language distribution shifts and code-switching effectively.
+
+
+=========================================================================================
+3. Tasks Evaluated
+
+
+1. Bitext Retrieval Experiment
+
+Goal:
+
+To test how well the model can find parallel (semantically equivalent) sentences across different languages.
+
+What It Evaluates:
+
+	•	Cross-Lingual Semantic Retrieval:
+	•	Can the model retrieve the correct sentence in Language 2 that matches a given sentence in Language 1?
+	•	Language Robustness:
+	•	How well does the model handle language shifts and code-switching (when parts of a sentence mix two languages)?
+
+Example:
+
+	•	Input (English): “I like apples.”
+	•	Expected Retrieval (French): “J’aime les pommes.”
+	•	Experiment Result Meaning:
+	•	A good retrieval model will retrieve the exact or semantically similar sentence.
+	•	If it struggles, it shows weaknesses in aligning language pairs in the embedding space.
+
+
+
+2. Retrieval-Based Classification Experiment
+
+Goal:
+
+To classify a test sample by retrieving similar samples from the training set and using their labels for prediction.
+
+What It Evaluates:
+
+	•	Utility of Retrieval for Classification:
+	•	Can the model predict a label for a test input based on the labels of retrieved examples?
+	•	Task Efficiency:
+	•	Instead of fine-tuning the model, you rely on pre-trained embeddings and retrieval methods.
+
+Example:
+
+	•	Input (Test Sentence in Swahili): “Huduma ilikuwa bora sana.” (The service was excellent.)
+	•	Retrieved Examples (with labels):
+	•	“The service was great.” (Positive) — English
+	•	“J’aime ce service.” (Positive) — French
+	•	“Das Essen war schlecht.” (Negative) — German
+	•	Prediction: Positive (via majority voting).
+	•	Experiment Result Meaning:
+	•	Good results mean the model retrieves examples with correct labels, showing that embeddings encode useful classification features.
+	•	Poor results suggest that retrieval is not label-aligned for classification tasks.
+
+
+
+3. In-Context Learning (ICL) Classification Experiment
+
+Goal:
+
+To classify a test sample by using retrieved examples as context for a generative model (e.g., GPT) in a few-shot learning setup.
+
+What It Evaluates:
+
+	•	Few-Shot Learning Ability:
+	•	Can the generative model use retrieved examples to understand the task and make correct predictions?
+	•	Instruction Following:
+	•	Can the model follow task-specific instructions effectively when examples are provided?
+
+Example:
+
+	•	Input (Code-Switched): “Este servicio is terrible.” (Spanish + English)
+	•	Constructed Input Sequence:
+            Instruction: Classify the sentiment.
+            Few-shot Examples:
+            - "The food was amazing." Label: Positive.
+            - "El servicio fue pésimo." Label: Negative.
+            Query: Este servicio is terrible.
+
+	•	Prediction: Negative.
+	•	Experiment Result Meaning:
+	•	Strong performance indicates that the model can use the retrieved examples and instructions to predict correctly, even with limited task-specific training.
+	•	If performance is poor, it suggests difficulty in combining retrieved context with generative inference.
+
+====================================================================================
+4. Experimental Setup
+
+	•	Datasets:
+	    •	200+ languages, including low-resource languages and code-switched datasets.
+	    •	Parallel datasets for bitext retrieval.
+	•	Models Tested:
+	    •	Multilingual LMs: mBERT, XLM-R, BLOOMZ, etc.
+	    •	Generative LMs: GPT, BLOOMZ, LLaVA for ICL tasks.
+	•	Metrics:
+	    •	Distance-based retrieval accuracy for bitext mining.
+	    •	Classification accuracy for retrieval-based and ICL tasks.
+
+
+=====================================================================================
+
+5. Key Findings
+
+	1.	Semantic Retrieval Works Without Fine-Tuning:
+	    •	Simply using retrieved embeddings yields competitive performance across tasks.
+	2.	Performance in Multilingual Contexts:
+	    •	Models show strong generalization, even in low-resource and code-switched scenarios.
+	    •	Bitext retrieval is effective for cross-lingual translation tasks.
+	3.	ICL Benefits from Retrieved Context:
+	    •	Few-shot learning improves classification performance, especially when combined with task-specific instructions.

@@ -48,10 +48,10 @@ def evaluate_bitext_mining(source_embeddings, target_embeddings, k):
             num_of_batches += 1
 
         for i in range(num_of_batches):
-            target_embedding = torch.FloatTensor(target_embeddings[i*batch_size:(i+1)*batch_size]).unsqueeze(1).cuda()
+            target_embedding = torch.FloatTensor(target_embeddings[i*batch_size:(i+1)*batch_size]).unsqueeze(1).to(device)
             
             source_embedding = torch.FloatTensor(source_embeddings[source_id]).unsqueeze(0)
-            source_embedding = source_embedding.expand(len(target_embedding), -1).unsqueeze(1).cuda()
+            source_embedding = source_embedding.expand(len(target_embedding), -1).unsqueeze(1).to(device)
             
             dist = torch.cdist(source_embedding, target_embedding, p=2, compute_mode='use_mm_for_euclid_dist_if_necessary').squeeze().tolist()
 
@@ -79,6 +79,8 @@ if __name__ == "__main__":
         type=str,
         required=True,
         help="Path to pre-trained model")
+    
+    # Argument Parsing
     parser.add_argument("--src_lang", type=str, default="eng", help="source language")
     parser.add_argument("--dataset", type=str, default="mtop", help="snips or mtop or multi-nlu")
     parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
@@ -86,7 +88,14 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--fp16", action="store_true")
     parser.add_argument("--prompt", type=str, default="", help="prompt")
+
+    
     args = parser.parse_args()
+
+    # Setup device
+    device = torch.device("cuda" if torch.cuda.is_available() and not args.cuda else "cpu")
+
+    
 
     # Make sure cuda is deterministic
     torch.backends.cudnn.deterministic = True
@@ -106,6 +115,7 @@ if __name__ == "__main__":
 
     output_dir = "outputs/save_bitext"
 
+    # Initializes a Cohere client using the COHERE_TOKEN.
     if "embed-multilingual" in args.model_checkpoint:
         model = cohere.Client(COHERE_TOKEN)
         batch_size = 64
@@ -113,12 +123,23 @@ if __name__ == "__main__":
         model = OpenAI(api_key=OPENAI_TOKEN)
         batch_size = 64
     else:
-        model = SentenceTransformer(args.model_checkpoint).cuda()
+        # model is used when none of the specific API-based checkpoints (Cohere or OpenAI) match.
+        model = SentenceTransformer(args.model_checkpoint)
+        if torch.cuda.is_available() and not args.cuda:
+            model = model.cuda()  # Move to GPU only if available and args.cuda is False
         batch_size = 128
 
+#-------------------------
+# 	1. Initialization
+# ------------------------
+    # List store the embeddings for sentence pairs 
     source_embeddings = []
+    # Dictionary storing source and target embeddings for each language pair.
     target_embeddings = {}
 
+#-------------------------
+# 	2.	Dataset selection:
+# ------------------------
     if args.dataset == "nusax":
         dataset = NusaXDataset(prompt=args.prompt)
     if args.dataset == "nusatranslation":
@@ -134,6 +155,10 @@ if __name__ == "__main__":
     if args.dataset == "nollysenti":
         dataset = NollySentiDataset(prompt=args.prompt, src_lang=args.src_lang)
 
+#-------------------------
+# 	3.	Iterate over language pairs:
+# ------------------------
+    # For each target language in dataset.LANGS, embeddings are computed:
     for target_lang in dataset.LANGS:
         # get embeddings
         key = args.src_lang + "_" + target_lang
@@ -152,9 +177,17 @@ if __name__ == "__main__":
             
         print(target_lang, num_of_batches)
         
+#-------------------------
+# 	4.	Batch Processing:
+# ------------------------
+
+        # Embeddings are computed in batches to handle large datasets efficiently:
         for i in tqdm(range(num_of_batches)):
             source_batch_data = dataset.train_data[key]["source"][i*batch_size:(i+1)*batch_size]
             target_batch_data = dataset.train_data[key]["target"][i*batch_size:(i+1)*batch_size]
+
+            # The embeddings are computed using the corresponding model (Cohere, OpenAI, or SentenceTransformer):
+            # The embeddings for the source and target batches are computed using one of three models depending on the model_checkpoint.
             if "embed-multilingual" in args.model_checkpoint:
                 source_batch_embeddings = get_cohere_embedding(model, source_batch_data, args.model_checkpoint)
                 target_batch_embeddings = get_cohere_embedding(model, target_batch_data, args.model_checkpoint)
@@ -165,6 +198,7 @@ if __name__ == "__main__":
                 source_batch_embeddings = model.encode(source_batch_data, normalize_embeddings=False)
                 target_batch_embeddings = model.encode(target_batch_data, normalize_embeddings=False)
             
+            # Storing Source Embeddings:
             if len(target_embeddings[key]["source"]) == 0:
                 target_embeddings[key]["source"] = source_batch_embeddings
             else:
